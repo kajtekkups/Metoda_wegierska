@@ -7,9 +7,7 @@ class AlgorytmWegierski:
     def __init__(self, macierz):
         self.macierz = macierz
 
-        self.listaKolumnZerNiezaleznych = []
-        self.listaWierszyZerNiezaleznych = []
-        self.listaKolumnZeZaleznych = []
+        self.listaZeZaleznych = [[] for i in range(len(self.macierz))] # lista przechowuje zera zalezne w formacie listaZerZaleznych[kolumna] = [wiersze]
         self.listaZerNiezaleznych = {} # lista przechowuje zera niezalezne w formacie listaZerNiezaleznych[kolumna] = wiersz
 
         self.suma_redukcji_phi = 0
@@ -40,52 +38,74 @@ class AlgorytmWegierski:
                 if matrixElement == 0:
                     # ozanacz jako zalezne albo niezalezne
                     if self.sprawdzCzyNiezalezne(zeroRowIndex, zeroColIndex):
-                        self.listaKolumnZerNiezaleznych.append(zeroColIndex)
-                        self.listaWierszyZerNiezaleznych.append(zeroRowIndex)
                         self.listaZerNiezaleznych[zeroColIndex] = zeroRowIndex
                     else:
-                        self.listaKolumnZeZaleznych.append(zeroColIndex)
+                        if zeroRowIndex not in self.listaZeZaleznych[zeroColIndex]:
+                            self.listaZeZaleznych[zeroColIndex].append(zeroRowIndex)
 
 
     def sprawdzCzyNiezalezne(self, elementRow, elementCol):
         #sprawdz czy w wierszu jest juz zero
-        if elementRow in self.listaWierszyZerNiezaleznych:
+        if elementRow in self.listaZerNiezaleznych.values():
             return False
 
         #sprawdz czy w kolumnie jest juz zero
-        if elementCol in self.listaKolumnZerNiezaleznych:
+        if elementCol in self.listaZerNiezaleznych.keys():
             return False
 
         return True
 
 
+    def wykreslKolumny(self, listaOznakowanychWierszy, lista_sprawdzajaca):
+        listaOznakowanychKolumn = []
+
+        # oznaczyc kazda kolumne majaca zero zalezne w wierszach
+        for wiersz in listaOznakowanychWierszy:
+            for col_index, col_element in enumerate(self.macierz[wiersz]):
+                if col_element == 0:
+                    # jezeli zero w kolumnie jest zalezne
+                    if self.listaZeZaleznych[col_index]:
+                        if col_index not in lista_sprawdzajaca:
+                            listaOznakowanychKolumn.append(col_index)
+        return listaOznakowanychKolumn
 
     def wykreslLinie(self):
-        listaNieOznakowanychWierszy = []
+        listaOznakowanychWierszy = []
         listaOznakowanychKolumn = []
-        for index, row in enumerate(self.macierz):
+        for row_index, row in enumerate(self.macierz):
+            #oznaczyc wiersz nie posiadajacy niezaleznego 0
+            if row_index not in self.listaZerNiezaleznych.values():
+                listaOznakowanychWierszy.append(row_index)
 
-            # nie oznaczac wierszy posiadajacych niezalezne 0
-            if index in self.listaWierszyZerNiezaleznych:
-               listaNieOznakowanychWierszy.append(index)
+        # oznaczyc kazda kolumne majaca zero zalezne w wierszach
 
-            else:
-                #oznaczyc kazda kolumne majaca zero zalezne w wierszu oznaczonym
-                for col_index, element in enumerate(row):
-                    if element == 0:
-                        if col_index in self.listaKolumnZeZaleznych:
-                            listaOznakowanychKolumn.append(col_index)
+        kolumny_do_wykreslenia = self.wykreslKolumny(listaOznakowanychWierszy, listaOznakowanychKolumn)
+        listaOznakowanychKolumn.extend(kolumny_do_wykreslenia)
+        while True:
+            tymczasowe_wiersze = []
 
-                            # oznacz kazdy wiersz majacy w oznakowanej kolumnie niezalezne zero
-                            if self.listaZerNiezaleznych[col_index]:
-                                try:
-                                    listaNieOznakowanychWierszy.remove(self.listaZerNiezaleznych[col_index])
-                                except ValueError:
-                                    print(f"Element nie istnieje w liście.")
+            # oznacz kazdy wiersz majacy w oznakowanej kolumnie niezalezne zero
+            for col in kolumny_do_wykreslenia:
+                if col in self.listaZerNiezaleznych.keys():
+                    if not self.listaZerNiezaleznych[col] in listaOznakowanychWierszy:
+                        tymczasowe_wiersze.append(self.listaZerNiezaleznych[col])
+                        listaOznakowanychWierszy.append(self.listaZerNiezaleznych[col])
 
-        self.wykresloneWiersze = listaNieOznakowanychWierszy
-        self.wykresloneKolumny = listaOznakowanychKolumn
+            kolumny_do_wykreslenia = self.wykreslKolumny(tymczasowe_wiersze, listaOznakowanychKolumn)
+            listaOznakowanychKolumn.extend(kolumny_do_wykreslenia)
 
+            if tymczasowe_wiersze:
+                continue
+            break
+
+        #znajdz nieoznakowane wiersze
+        listaNieOznakowanychWierszy = []
+        for row_index in range(len(self.macierz)):
+            if not row_index in listaOznakowanychWierszy:
+                listaNieOznakowanychWierszy.append(row_index)
+
+        self.wykresloneWiersze.extend(x for x in listaNieOznakowanychWierszy if x not in self.wykresloneWiersze)
+        self.wykresloneKolumny.extend(x for x in listaOznakowanychKolumn if x not in self.wykresloneKolumny)
 
     def powiekszZbiorZerNiezaleznych(self):
         # tworzymy liste elementow macierzy bez elementow wykreslonych
@@ -143,12 +163,23 @@ class AlgorytmWegierski:
         print(self.wyznaczMacierzRozwiazania())
 
 def main():
-    A = np.array([[5, 2, 3, 2, 7],
-                  [6, 8, 4, 2, 5],
-                  [6, 4, 3, 7, 2],
-                  [6, 9, 0, 4, 0],
-                  [4, 1, 2, 4, 0]])
-
+    # A = np.array([[5, 2, 3, 2, 7],
+    #               [6, 8, 4, 2, 5],
+    #               [6, 4, 3, 7, 2],
+    #               [6, 9, 0, 4, 0],
+    #               [4, 1, 2, 4, 0]])
+    A = np.array([[3, 1, 3, 3, 3, 6],
+                [6, 2, 2, 3, 2, 4],
+                [7, 8, 9, 5, 6, 1],
+                [3, 8, 5, 8, 7, 2],
+                [9, 6, 1, 1, 6, 5],
+                [9, 6, 1, 8, 9, 6]])
+    # A = np.array([[8, 7, 9, 6, 8, 7],
+    #              [2, 2, 2, 4, 7, 2],
+    #              [4, 9, 5, 7, 5, 9],
+    #              [1, 9, 2, 7, 4, 6],
+    #              [4, 3, 1, 1, 7, 3],
+    #              [1, 8, 4, 4, 1, 2]])
     Test = AlgorytmWegierski(A)
     Test.rozwiazanieAlgorytmu()
 
